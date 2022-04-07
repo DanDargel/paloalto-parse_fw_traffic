@@ -1,3 +1,4 @@
+<pre>
 # paloalto-parse_fw_traffic
 Perl script to parse Palo Alto Networks firewall traffic logs and filter records and output statistics
 
@@ -30,4 +31,4 @@ hosts.
                              Gives periodic reports.
                              Uses: tail -f [FILE] | /usr/local/sbin/parse_fw_traffic
   -p10                     Periodic report interval (secs)
-
+</pre>
