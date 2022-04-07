@@ -30,3 +30,4 @@ hosts.
                              Gives periodic reports.
                              Uses: tail -f [FILE] | /usr/local/sbin/parse_fw_traffic
   -p10                     Periodic report interval (secs)
+
