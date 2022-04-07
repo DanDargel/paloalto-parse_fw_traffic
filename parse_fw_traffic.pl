@@ -5,6 +5,7 @@
 # 2015-03-12  dargel(at)uwplatt.edu  Created
 # 2022-03-24  dargel(at)uwplatt.edu  Add counters for rules
 # 2022-04-07  dargel(at)uwplatt.edu  Add src/detzone, fw, deny, rule options and fix periodic
+# 2022-04-07  dargel(at)uwplatt.edu  Added pretty print option
 
 use strict;
 use Date::Parse;
@@ -16,6 +17,9 @@ my ($total, $total_src_bytes, $total_dst_bytes, %protos, %srcs, %dsts, %src_byte
 my $maxcount = 10;
 my $repinterval = 0;
 my ($since, $before, $src_opt, $dst_opt, $srczone, $dstzone, $device, $rule_opt);
+
+# Pretty print format
+my $fmt = "%-19.19s %-10.10s %-10.10s %-5.5s %-10.10s %15.15s:%-5.5s %-15.15s %-10.10s %15.15s:%-5.5s %-15.15s %-15.15s %-20.20s %8.8s %8.8s\n";
 
 # Parse command options
 use Getopt::Long;
@@ -38,6 +42,7 @@ GetOptions(\%opts,
   "ports",
   "fw=s" => \$device,
   "l",
+  "L",
   "f",
   "help|usage|?" => \&usage) or usage();
 
@@ -57,30 +62,33 @@ hosts.
 
   --fw=FWNAME              Only process records for firewall named
   --rule=RULE              Only process records contains RULE
-  --srczone=SONE           Only process records from zone
-  --dstzone=SONE           Only process records to zone
+  --srczone=ZONE           Only process records from zone
+  --dstzone=ZONE           Only process records to zone
   --src=ip                 Limit to source IP
   --dst=ip                 Limit to destination IP
   --since=datetime         Only consider records since datetime
   --before=datetime        Only consider records before datetime
-  -c$maxcount              Number of records to output for each category.
-                           Use (-c) for all records.
-  -?, --help, --usage      Outputs program usage.
-
+  -c10                     Number of records to output for each category.
+                           Use (-c) for all records.  Use (-c0) for no summary.
   -s                       Output only source IPs
   -d                       Output only destination IPs
   --deny                   Outout only sessions that are blocked
   --flows                  Output individual flows
   --ports                  Categorize by ports
   -l                       Output log lines
+  -L                       Pretty print log lines
   -f                       Output records added to file in real time (follow)
                              Gives periodic reports.
                              Uses: tail -f [FILE] | $0
   -p10                     Periodic report interval (secs)
+  -?, --help, --usage      Outputs program usage.
 
 EOT
   exit;
 }
+
+# Output pretty print header
+printf $fmt,'Time','Device','Action','Proto','SZone','Source','SPort','SCountry','DZone','Dest','DPort','DCountry','Application','Rule','Packets','Bytes' if ($opts{L});
 
 #-------------------------------------------------------------------------------
 # Mainline
@@ -115,6 +123,8 @@ sub periodic {
 #-------------------------------------------------------------------------------
 # Output results
 sub output {
+  return if ($maxcount == 0);  # Skip if output record count is zeor
+
   print "\n";
   print "Total log entries processed: $total\n";
 
@@ -338,6 +348,9 @@ sub parse_log_line
 
   # Output log line
   print $line,"\n" if ($opts{l});
+
+  # Pretty print log line
+  printf $fmt,$time_generated,$devname,$action,$proto,$from,$src,$sport,$srcloc,$to,$dst,$dport,$dstloc,$app,$rule,scalenum($packets),scalenum($bytes) if ($opts{L});
 }
 
 #-------------------------------------------------------------------------------
