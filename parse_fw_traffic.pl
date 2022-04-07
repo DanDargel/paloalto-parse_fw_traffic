@@ -117,7 +117,7 @@ sub ctrlc {
 sub periodic {
   alarm $repinterval;
   output();
-  print "\n";
+  print "\n" if ($maxcount != 0);
 }
 
 #-------------------------------------------------------------------------------
