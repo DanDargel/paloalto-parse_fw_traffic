@@ -6,6 +6,7 @@
 # 2022-03-24  dargel(at)uwplatt.edu  Add counters for rules
 # 2022-04-07  dargel(at)uwplatt.edu  Add src/detzone, fw, deny, rule options and fix periodic
 # 2022-04-07  dargel(at)uwplatt.edu  Added pretty print option
+# 2022-04-08  dargel(at)uwplatt.edu  Fix bug caused by periodic report interrupt
 
 use strict;
 use Date::Parse;
@@ -73,7 +74,7 @@ hosts.
                            Use (-c) for all records.  Use (-c0) for no summary.
   -s                       Output only source IPs
   -d                       Output only destination IPs
-  --deny                   Outout only sessions that are blocked
+  --deny                   Output only sessions that are blocked
   --flows                  Output individual flows
   --ports                  Categorize by ports
   -l                       Output log lines
@@ -94,6 +95,7 @@ printf $fmt,'Time','Device','Action','Proto','SZone','Source','SPort','SCountry'
 #-------------------------------------------------------------------------------
 # Mainline
 
+my $periodic_trigger = 0;
 $SIG{INT} = \&ctrlc;
 $SIG{ALRM} = \&periodic;
 $repinterval = 10 if ($opts{f} && $repinterval < 1);
@@ -117,14 +119,14 @@ sub ctrlc {
 # Procedure to output a periodic report
 sub periodic {
   alarm $repinterval;
-  output();
-  print "\n" if ($maxcount != 0);
+  $periodic_trigger = 1;
 }
 
 #-------------------------------------------------------------------------------
 # Output results
 sub output {
-  return if ($maxcount == 0);  # Skip if output record count is zeor
+  $periodic_trigger = 0;
+  return if ($maxcount == 0);  # Skip if output record count is zero
 
   print "\n";
   print "Total log entries processed: $total\n";
@@ -352,6 +354,9 @@ sub parse_log_line
 
   # Pretty print log line
   printf $fmt,$time_generated,$devname,$action,$proto,$from,$src,$sport,$srcloc,$to,$dst,$dport,$dstloc,$app,$rule,scalenum($packets),scalenum($bytes) if ($opts{L});
+
+  # Output periodic report
+  output() if ($periodic_trigger);
 }
 
 #-------------------------------------------------------------------------------
