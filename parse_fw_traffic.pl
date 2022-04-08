@@ -58,7 +58,8 @@ Parses records from a PaloAlto traffic logfile and outputs top results by
 hosts.
 
   [FILE]  Log files may be specified on the command line or records may be
-          piped in.  Files ending in ".gz" will be decompressed when read.
+          piped in.  Files ending in ".gz", ".bz", or ".bz2" will be
+          decompressed when read.  Use -l -c0 to output raw records.
 
   --fw=FWNAME              Only process records for firewall named
   --rule=RULE              Only process records contains RULE
