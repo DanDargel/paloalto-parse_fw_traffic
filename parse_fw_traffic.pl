@@ -66,7 +66,7 @@ hosts.
 
   --fw=FWNAME              Only process records for firewall named
   --rule=RULE              Only process records that contains RULE
-  --proto=TCP              Only process records for protocol
+  --proto=tcp              Only process records for protocol
   --srczone=ZONE           Only process records from zone
   --dstzone=ZONE           Only process records to zone
   --src=ip                 Limit to source IP
