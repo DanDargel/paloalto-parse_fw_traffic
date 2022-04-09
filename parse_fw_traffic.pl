@@ -7,6 +7,7 @@
 # 2022-04-07  dargel(at)uwplatt.edu  Add src/detzone, fw, deny, rule options and fix periodic
 # 2022-04-07  dargel(at)uwplatt.edu  Added pretty print option
 # 2022-04-08  dargel(at)uwplatt.edu  Fix bug caused by periodic report interrupt
+# 2022-04-09  dargel(at)uwplatt.edu  Add protocol option
 
 use strict;
 use Date::Parse;
@@ -17,7 +18,7 @@ my ($total, $total_src_bytes, $total_dst_bytes, %protos, %srcs, %dsts, %src_byte
 # Defaults
 my $maxcount = 10;
 my $repinterval = 0;
-my ($since, $before, $src_opt, $dst_opt, $srczone, $dstzone, $device, $rule_opt);
+my ($since, $before, $proto_opt, $src_opt, $dst_opt, $srczone, $dstzone, $device, $rule_opt);
 
 # Pretty print format
 my $fmt = "%-19.19s %-10.10s %-10.10s %-5.5s %-10.10s %15.15s:%-5.5s %-15.15s %-10.10s %15.15s:%-5.5s %-15.15s %-15.15s %-20.20s %8.8s %8.8s\n";
@@ -31,6 +32,7 @@ GetOptions(\%opts,
   "p:10" => \$repinterval,
   "since=s" => sub{$since=str2time($_[1])},
   "before=s" => sub{$before=str2time($_[1])},
+  "proto=s" => \$proto_opt,
   "src=s" => \$src_opt,
   "dst=s" => \$dst_opt,
   "srczone=s" =>\$srczone,
@@ -63,7 +65,8 @@ hosts.
           decompressed when read.  Use -l -c0 to output raw records.
 
   --fw=FWNAME              Only process records for firewall named
-  --rule=RULE              Only process records contains RULE
+  --rule=RULE              Only process records that contains RULE
+  --proto=TCP              Only process records for protocol
   --srczone=ZONE           Only process records from zone
   --dstzone=ZONE           Only process records to zone
   --src=ip                 Limit to source IP
@@ -313,6 +316,9 @@ sub parse_log_line
 
   # Only traffic that is not denied
   return if ($opts{deny} && $action eq 'allow');
+
+  # Only certain protocol
+  return if ($proto_opt && $proto_opt ne $proto);
 
   # Only traffic that contains rule_opt
   return if ($rule_opt && $rule !~ m/$rule_opt/i);
