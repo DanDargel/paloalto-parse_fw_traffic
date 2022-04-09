@@ -1,5 +1,6 @@
 <pre>
 # paloalto-parse_fw_traffic
+Usage: parse_fw_traffic [OPTIONS] [FILE]...
 Parses records from a PaloAlto traffic logfile and outputs top results by
 hosts.
 
@@ -7,8 +8,9 @@ hosts.
           piped in.  Files ending in ".gz", ".bz", or ".bz2" will be
           decompressed when read.  Use -l -c0 to output raw records.
 
-  --fw=FWNAME              Only process records for firewall named
-  --rule=RULE              Only process records contains RULE
+   --fw=FWNAME              Only process records for firewall named
+  --rule=RULE              Only process records that contains RULE
+  --proto=tcp              Only process records for protocol
   --srczone=ZONE           Only process records from zone
   --dstzone=ZONE           Only process records to zone
   --src=ip                 Limit to source IP
@@ -19,14 +21,15 @@ hosts.
                            Use (-c) for all records.  Use (-c0) for no summary.
   -s                       Output only source IPs
   -d                       Output only destination IPs
-  --deny                   Outout only sessions that are blocked
+  --deny                   Output only sessions that are blocked
   --flows                  Output individual flows
   --ports                  Categorize by ports
   -l                       Output log lines
   -L                       Pretty print log lines
   -f                       Output records added to file in real time (follow)
                              Gives periodic reports.
-                             Uses: tail -f [FILE] | $0
+                             Uses: tail -f [FILE] | ./parse_fw_traffic
   -p10                     Periodic report interval (secs)
   -?, --help, --usage      Outputs program usage.
+
 </pre>
