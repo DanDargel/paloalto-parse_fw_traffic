@@ -1,0 +1,188 @@
+#!/usr/bin/perl
+# Parse PaloAlto firewall GlobalProtect logs
+#
+# 2025-02-18  dargel(at)uwplatt.edu  Created
+
+use strict;
+use Text::CSV;
+use Date::Parse;
+
+
+my $csv = Text::CSV->new();
+my $total;
+
+# Defaults
+my ($since, $before, $public_opt, $private_opt, $device, $vpn, $user, $wsname);
+
+# Parse command options
+use Getopt::Long;
+my %opts=();
+Getopt::Long::Configure qw(bundling);
+GetOptions(\%opts,
+  "since=s" => sub{$since=str2time($_[1])},
+  "before=s" => sub{$before=str2time($_[1])},
+  "public=s" => \$public_opt,
+  "private=s" => \$private_opt,
+  "fw=s" => \$device,
+  "vpn=s" => \$vpn,
+  "user=s" => \$user,
+  "wsname=s" => \$wsname,
+  "S",
+  "F",
+  "l",
+  "L",
+  "f",
+  "foreign",
+  "satellite",
+  "portal",
+  "gateway",
+  "login",
+  "help|usage|?" => \&usage) or usage();
+
+$opts{L} = 1 unless $opts{L} or $opts{l};
+
+$ARGV[0] = '-' if (!$ARGV[0]);  # Stdio if no input file
+
+# Subroutine to print usage
+sub usage {
+  print <<EOT;
+Usage: $0 [OPTIONS] [FILE]...
+Parses records from a PaloAlto GlobalProtect logfile
+
+  [FILE]  Log files may be specified on the command line or records may be
+          piped in.  Files ending in ".gz", ".bz", or ".bz2" will be
+          decompressed when read.  Use -l -c0 to output raw records.
+
+  -S                       Only success records
+  -F                       Only failure records
+  --fw=FWNAME              Only records for firewall named
+  --vpn=VPNNAME            Only records for VPN named
+  --user=username          Only records for username
+  --wsname=name            Only records for workstation
+  --public=ip              Limit to public IP
+  --private=ip             Limit to priate IP
+  --since=datetime         Only consider records since datetime
+  --before=datetime        Only consider records before datetime
+  --foreign                Only non-US records
+  --satellite              Output LSVPN satellite records instead
+  --portal                 Only portal records
+  --gateway                Only gateway records
+  --login                  Only login/logout/connected records
+  -l                       Output log lines
+  -L                       Pretty print log lines (default)
+  -f                       Output records added to file in real time (follow)
+                             Uses: tail -f [FILE] | $0
+  -?, --help, --usage      Outputs program usage.
+
+EOT
+  exit;
+}
+
+# Pretty print formatV
+my $fmt = "%-19.19s %-6s %-7s %-7.7s %-22s %-13s %-11.11s %-6.6s %-16s %-3s %-10s %-15.15s %-15.15s %-7s %11s %s\n";
+
+# Output pretty print header
+printf $fmt,'Time','FW','VPN','Status','Event','Stage','AuthMethod','Tunnel','User','Co','WSName','PublicIP','PrivateIP','OS','Duration','Description' if ($opts{L});
+
+#-------------------------------------------------------------------------------
+# Mainline
+
+# Parse each input file
+parse_file($_) foreach (@ARGV);
+
+exit;
+
+#-------------------------------------------------------------------------------
+# Parse the contents of a file
+sub parse_file {
+  my($inf) = @_;
+
+  # Check if compressed and open file
+  $inf =~ s/(.*\.xz)$/xzcat $1|/;
+  $inf =~ s/(.*\.gz)$/zcat $1|/;
+  $inf =~ s/(.*\.bz)$/bzcat $1|/;
+  $inf =~ s/(.*\.bz2)$/bzcat $1|/;
+  $inf = "tail -0f $inf |" if ($opts{f});  # follow file
+  open(INF, $inf) or die "can't open $inf: $!";
+
+  # Parse records of the file
+  while (<INF>) {
+    chomp;
+    parse_log_line($_);
+  }
+  close INF or die "bad stat: $! $?";
+}
+
+#-------------------------------------------------------------------------------
+sub parse_log_line
+{
+  # Grab the line we were given
+  my($line) = @_;
+
+  # Parse the line
+  $csv->parse($line);
+  my ($logheader, $receive_time, $serial, $type, $subtype, $f1, $time_generated, $vsys, $eventid, $stage, $auth_method, $tunnel_type, $srcuser, $srcregion, $machinename, $public_ip, $public_ipv6, $private_ip, $private_ipv6, $hostid, $serialnumber, $client_ver, $client_os, $client_os_ver, $repeatcnt, $reason, $error, $opaque, $status, $location, $login_duration, $connect_method, $error_code, $portal, $seqno, $actionflags, $hr_time, $selection_type, $response_time, $priority, $attempted_gateways, $gateway, $dg_hier_level1, $dg_hier_level2, $dg_hier_level3, $dg_hier_level4, $vsys_name, $devname, $vsys_id, $f2) = $csv->fields();
+  $logheader =~ /^(\w+ [ \d]\d \d\d:\d\d:\d\d) ([^\s]+) (\d+)$/;
+  my ($timestamp, $fw) = ($1, $2);
+
+  # Only GLOBALPROTECT logs
+  return if ($type ne 'GLOBALPROTECT');
+
+  # Only a certain firewall
+  return if ($device && $devname ne $device);
+  return if ($vpn && not $portal =~ /^$vpn$/i);
+
+  # Only Success/Failure
+  return if ($opts{S} && $status ne 'success');
+  return if ($opts{F} && $status ne 'failure');
+
+  # Check IP
+  return if ($public_opt && $public_opt ne $public_ip);
+  return if ($private_opt && $private_opt ne $private_ip);
+
+  return if ($user && not $srcuser =~ /(^|\\)$user(@|$)/);
+  return if ($wsname && not $machinename =~ /^$wsname$/i);
+
+  return if ($opts{login} && not $stage =~ /^(login|logout|connected)$/ );
+
+  return if ($opts{foreign} && $srcregion eq 'US');
+
+  return if ($opts{satellite} xor $eventid =~ /^satellite/);
+
+  return if ($opts{portal} && not $eventid =~ /^portal/);
+  return if ($opts{gateway} && not $eventid =~ /^gateway/);
+
+  # Check time range
+  if ($since || $before) {
+    my $t = str2time($time_generated);
+    return if ($since && $t < $since);
+    return if ($before && $t > $before);
+  }
+
+  # Output log line
+  print $line,"\n" if ($opts{l});
+
+  # Pretty print log line
+  printf $fmt,$time_generated,$devname,$portal,$status,$eventid,$stage,$auth_method,$tunnel_type,$srcuser,$srcregion,$machinename,$public_ip,$private_ip,$client_os,duration($login_duration),$error . $opaque if ($opts{L});
+}
+
+#-------------------------------------------------------------------------------
+# Convert dotted-quad IP address to 32-bit int
+sub ip2dec {
+    my ($o1,$o2,$o3,$o4) = split(/\./, $_[0]);
+    ($o1 << 24) + ($o2 << 16) + ($o3 << 8) + $o4;
+}
+
+#-------------------------------------------------------------------------------
+# Pretty print duration from seconds to d hh:mm:ss
+sub duration {
+  my $s = shift;
+
+  return '' if $s < 1;
+  my $m = $s / 60; $s %= 60;
+  my $h = $m / 60; $m %= 60;
+  return sprintf("%2d:%02d:%02d",$h,$m,$s) if $h < 24;
+  my $d = $h / 24; $h %= 24;
+  return sprintf("%dd %2d:%02d:%02d",$d,$h,$m,$s);
+}
+
