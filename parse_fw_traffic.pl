@@ -8,6 +8,7 @@
 # 2022-04-07  dargel(at)uwplatt.edu  Added pretty print option
 # 2022-04-08  dargel(at)uwplatt.edu  Fix bug caused by periodic report interrupt
 # 2022-04-09  dargel(at)uwplatt.edu  Add protocol option
+# 2025-02-19  dargel(at)uwplatt.edu  Added decompress of xz files
 
 use strict;
 use Date::Parse;
@@ -283,6 +284,7 @@ sub parse_file {
   my($inf) = @_;
 
   # Check if compressed and open file
+  $inf =~ s/(.*\.xz)$/xzcat $1|/;
   $inf =~ s/(.*\.gz)$/zcat $1|/;
   $inf =~ s/(.*\.bz)$/bzcat $1|/;
   $inf =~ s/(.*\.bz2)$/bzcat $1|/;
