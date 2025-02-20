@@ -8,7 +8,7 @@ hosts.
           piped in.  Files ending in ".gz", ".bz", or ".bz2" will be
           decompressed when read.  Use -l -c0 to output raw records.
 
-   --fw=FWNAME              Only process records for firewall named
+  --fw=FWNAME              Only process records for firewall named
   --rule=RULE              Only process records that contains RULE
   --proto=tcp              Only process records for protocol
   --srczone=ZONE           Only process records from zone
@@ -38,7 +38,7 @@ Parses records from a PaloAlto GlobalProtect logfile
 
   [FILE]  Log files may be specified on the command line or records may be
           piped in.  Files ending in ".gz", ".bz", or ".bz2" will be
-          decompressed when read.  Use -l -c0 to output raw records.
+          decompressed when read.  Use -l to output raw records.
 
   -S                       Only success records
   -F                       Only failure records
